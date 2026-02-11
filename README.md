@@ -48,7 +48,8 @@ The service uses the following AWS components:
 
 1. **Clone the repository**:
 ```bash
-cd /Users/shahenshah/Codebase/personal/instagram-service
+git clone https://github.com/shahez/instagram-service.git
+cd instagram-service
 ```
 
 2. **Create a virtual environment**:

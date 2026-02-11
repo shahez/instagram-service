@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   localstack:
     image: localstack/localstack:latest
@@ -8,18 +6,14 @@ services:
       - "4566:4566"            # LocalStack Gateway
       - "4510-4559:4510-4559"  # External services port range
     environment:
-      - SERVICES=s3,dynamodb,apigateway,lambda,iam
+      - SERVICES=s3,dynamodb
       - DEBUG=1
-      - DATA_DIR=/tmp/localstack/data
-      - LAMBDA_EXECUTOR=docker
-      - DOCKER_HOST=unix:///var/run/docker.sock
+      - PERSISTENCE=0
       - AWS_DEFAULT_REGION=us-east-1
       - AWS_ACCESS_KEY_ID=test
       - AWS_SECRET_ACCESS_KEY=test
     volumes:
-      - "./localstack-data:/tmp/localstack"
       - "/var/run/docker.sock:/var/run/docker.sock"
-      - "./scripts:/docker-entrypoint-initaws.d"
     networks:
       - instagram-network
 

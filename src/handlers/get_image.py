@@ -3,9 +3,17 @@ Lambda handler for viewing/downloading an image
 """
 import json
 import base64
+from decimal import Decimal
 from typing import Dict, Any
 from src.utils.s3_utils import download_image, get_image_url
 from src.utils.dynamodb_utils import get_image_metadata
+
+
+def decimal_default(obj):
+    """Helper to convert Decimal to int or float for JSON serialization"""
+    if isinstance(obj, Decimal):
+        return int(obj) if obj % 1 == 0 else float(obj)
+    raise TypeError
 
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
@@ -63,7 +71,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'image_id': image_id,
                     'url': presigned_url,
                     'metadata': metadata
-                })
+                }, default=decimal_default)
             }
         
         # Check if user wants to download
@@ -84,7 +92,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'image_data': base64.b64encode(image_data).decode('utf-8'),
                     'content_type': metadata.get('content_type', 'image/jpeg'),
                     'metadata': metadata
-                }),
+                }, default=decimal_default),
                 'headers': {
                     'Content-Type': 'application/json'
                 }
@@ -96,7 +104,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'body': json.dumps({
                 'image_id': image_id,
                 'metadata': metadata
-            })
+            }, default=decimal_default)
         }
     
     except Exception as e:

@@ -4,10 +4,18 @@ Lambda handler for uploading images with metadata
 import json
 import base64
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
+from decimal import Decimal
 from typing import Dict, Any
 from src.utils.s3_utils import upload_image
 from src.utils.dynamodb_utils import save_image_metadata
+
+
+def decimal_default(obj):
+    """Helper to convert Decimal to int or float for JSON serialization"""
+    if isinstance(obj, Decimal):
+        return int(obj) if obj % 1 == 0 else float(obj)
+    raise TypeError
 
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
@@ -68,7 +76,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             }
         
         # Prepare metadata
-        upload_date = datetime.utcnow().isoformat()
+        upload_date = datetime.now(timezone.utc).isoformat()
         metadata = {
             'image_id': image_id,
             'user_id': body['user_id'],
@@ -97,7 +105,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'message': 'Image uploaded successfully',
                 'image_id': image_id,
                 'metadata': metadata
-            })
+            }, default=decimal_default)
         }
     
     except Exception as e:

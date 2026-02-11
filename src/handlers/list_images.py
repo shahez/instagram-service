@@ -2,8 +2,16 @@
 Lambda handler for listing images with filters
 """
 import json
+from decimal import Decimal
 from typing import Dict, Any
 from src.utils.dynamodb_utils import list_images
+
+
+def decimal_default(obj):
+    """Helper to convert Decimal to int or float for JSON serialization"""
+    if isinstance(obj, Decimal):
+        return int(obj) if obj % 1 == 0 else float(obj)
+    raise TypeError
 
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
@@ -44,7 +52,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'body': json.dumps({
                 'count': len(images),
                 'images': images
-            })
+            }, default=decimal_default)
         }
     
     except Exception as e:

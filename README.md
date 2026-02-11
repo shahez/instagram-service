@@ -143,9 +143,12 @@ docker-compose down -v
 
 ### Base URL
 ```
-Local: http://localhost:4566
+Local Development (Flask dev server): http://127.0.0.1:5001
+LocalStack with API Gateway: http://localhost:4566
 Production: https://api.your-domain.com
 ```
+
+**Note**: For local testing, use the Flask development server (`dev_server.py`) at `http://127.0.0.1:5001`. The examples below use this endpoint. See the [Testing section](#testing-the-http-apis) for complete instructions.
 
 ### 1. Upload Image
 
@@ -199,7 +202,7 @@ Upload an image with metadata.
 IMAGE_BASE64=$(base64 -i image.jpg)
 
 # Upload image
-curl -X POST http://localhost:4566/images \
+curl -X POST http://127.0.0.1:5001/images \
   -H "Content-Type: application/json" \
   -d '{
     "image": "'"$IMAGE_BASE64"'",
@@ -221,7 +224,7 @@ with open('image.jpg', 'rb') as f:
 
 # Upload
 response = requests.post(
-    'http://localhost:4566/images',
+    'http://127.0.0.1:5001/images',
     json={
         'image': image_data,
         'user_id': 'user123',
@@ -278,13 +281,13 @@ Retrieve a list of images with optional filtering.
 
 ```bash
 # List all images
-curl http://localhost:4566/images
+curl http://127.0.0.1:5001/images
 
 # Filter by user_id
-curl http://localhost:4566/images?user_id=user123
+curl "http://127.0.0.1:5001/images?user_id=user123"
 
 # Filter by tag
-curl http://localhost:4566/images?tag=sunset
+curl "http://127.0.0.1:5001/images?tag=sunset"
 ```
 
 ### 3. Get/Download Image
@@ -337,13 +340,13 @@ Retrieve image metadata or download image data.
 
 ```bash
 # Get metadata only
-curl http://localhost:4566/images/a1b2c3d4-e5f6-7890-abcd-ef1234567890
+curl http://127.0.0.1:5001/images/a1b2c3d4-e5f6-7890-abcd-ef1234567890
 
 # Download image data
-curl http://localhost:4566/images/a1b2c3d4-e5f6-7890-abcd-ef1234567890?download=true
+curl "http://127.0.0.1:5001/images/a1b2c3d4-e5f6-7890-abcd-ef1234567890?download=true"
 
 # Get presigned URL
-curl http://localhost:4566/images/a1b2c3d4-e5f6-7890-abcd-ef1234567890?url=true
+curl "http://127.0.0.1:5001/images/a1b2c3d4-e5f6-7890-abcd-ef1234567890?url=true"
 ```
 
 **Python Example - Download and Save**:
@@ -353,7 +356,7 @@ import base64
 
 image_id = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
 response = requests.get(
-    f'http://localhost:4566/images/{image_id}?download=true'
+    f'http://127.0.0.1:5001/images/{image_id}?download=true'
 )
 
 data = response.json()
@@ -389,7 +392,7 @@ Delete an image and its metadata.
 
 **Example**:
 ```bash
-curl -X DELETE http://localhost:4566/images/a1b2c3d4-e5f6-7890-abcd-ef1234567890
+curl -X DELETE http://127.0.0.1:5001/images/a1b2c3d4-e5f6-7890-abcd-ef1234567890
 ```
 
 ### Error Responses
@@ -419,7 +422,163 @@ All endpoints may return the following error responses:
 
 ## 🧪 Testing
 
-The project includes comprehensive unit and integration tests.
+The project includes comprehensive unit and integration tests, as well as a development HTTP server for manual API testing.
+
+### Testing the HTTP APIs
+
+For local development and manual testing, use the Flask development server that wraps the Lambda handlers as HTTP endpoints.
+
+#### 1. Start the Development Server
+
+First, ensure LocalStack is running:
+```bash
+docker-compose up -d
+python scripts/setup.py  # Initialize AWS resources if not done
+```
+
+Start the Flask dev server:
+```bash
+PYTHONPATH=$PWD .venv/bin/python dev_server.py
+```
+
+The server will start on `http://127.0.0.1:5001`. You should see:
+```
+ * Running on http://127.0.0.1:5001
+```
+
+#### 2. Verify Server is Running
+
+```bash
+curl http://127.0.0.1:5001/health
+```
+
+Expected response:
+```json
+{"service": "instagram-service", "status": "healthy"}
+```
+
+#### 3. Test Upload Image
+
+First, create a test image or use an existing one:
+```bash
+# Create a simple test image using Python
+python3 << 'EOF'
+from PIL import Image
+img = Image.new('RGB', (100, 100), color='red')
+img.save('test_image.jpg')
+print("Test image created: test_image.jpg")
+EOF
+```
+
+Upload the image:
+```bash
+# Convert image to base64
+IMAGE_BASE64=$(base64 -i test_image.jpg)
+
+# Upload via API
+curl -X POST http://127.0.0.1:5001/images \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"image\": \"$IMAGE_BASE64\",
+    \"user_id\": \"user123\",
+    \"title\": \"Test Image\",
+    \"description\": \"A test image for API testing\",
+    \"tags\": [\"test\", \"demo\"]
+  }"
+```
+
+Save the returned `image_id` from the response for the next steps.
+
+#### 4. Test List Images
+
+List all images:
+```bash
+curl http://127.0.0.1:5001/images
+```
+
+Filter by user:
+```bash
+curl "http://127.0.0.1:5001/images?user_id=user123"
+```
+
+Filter by tag:
+```bash
+curl "http://127.0.0.1:5001/images?tag=test"
+```
+
+#### 5. Test Get Image
+
+Get metadata only (replace `IMAGE_ID` with actual ID from upload response):
+```bash
+curl http://127.0.0.1:5001/images/IMAGE_ID
+```
+
+Get with presigned URL:
+```bash
+curl "http://127.0.0.1:5001/images/IMAGE_ID?url=true"
+```
+
+Download image data:
+```bash
+curl "http://127.0.0.1:5001/images/IMAGE_ID?download=true"
+```
+
+Download and save to file:
+```bash
+curl "http://127.0.0.1:5001/images/IMAGE_ID?download=true" | \
+  python3 -c "import sys, json, base64; data = json.load(sys.stdin); open('downloaded.jpg', 'wb').write(base64.b64decode(data['image_data']))"
+```
+
+#### 6. Test Delete Image
+
+```bash
+curl -X DELETE http://127.0.0.1:5001/images/IMAGE_ID
+```
+
+Verify deletion:
+```bash
+curl http://127.0.0.1:5001/images/IMAGE_ID
+# Should return 404 error
+```
+
+#### Complete Workflow Example
+
+```bash
+# 1. Create test image
+python3 -c "from PIL import Image; Image.new('RGB', (200, 200), 'blue').save('blue.jpg')"
+
+# 2. Upload
+IMAGE_B64=$(base64 -i blue.jpg)
+RESPONSE=$(curl -s -X POST http://127.0.0.1:5001/images \
+  -H "Content-Type: application/json" \
+  -d "{\"image\": \"$IMAGE_B64\", \"user_id\": \"testuser\", \"title\": \"Blue Square\", \"tags\": [\"blue\", \"test\"]}")
+echo $RESPONSE
+
+# 3. Extract image_id (requires jq)
+IMAGE_ID=$(echo $RESPONSE | jq -r '.image_id')
+echo "Uploaded image: $IMAGE_ID"
+
+# 4. List images
+curl -s http://127.0.0.1:5001/images | jq '.'
+
+# 5. Get image metadata
+curl -s http://127.0.0.1:5001/images/$IMAGE_ID | jq '.'
+
+# 6. Download image
+curl -s "http://127.0.0.1:5001/images/$IMAGE_ID?download=true" | \
+  python3 -c "import sys, json, base64; data = json.load(sys.stdin); open('downloaded_blue.jpg', 'wb').write(base64.b64decode(data['image_data']))"
+echo "Image downloaded to: downloaded_blue.jpg"
+
+# 7. Delete image
+curl -s -X DELETE http://127.0.0.1:5001/images/$IMAGE_ID
+echo "Image deleted"
+
+# 8. Verify deletion
+curl -s http://127.0.0.1:5001/images/$IMAGE_ID | jq '.'
+# Should show error
+```
+
+**Note**: The dev server (`dev_server.py`) is for local testing only. For production, deploy the Lambda functions with API Gateway as described in the Deployment section.
 
 ### Running Tests
 
